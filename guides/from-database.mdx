@@ -1,0 +1,98 @@
+---
+title: "Reconstruct from a database"
+description: "Run GLOMAP directly when you already have a COLMAP database with extracted features and matches."
+---
+
+If you have already run COLMAP's feature extraction and matching steps, GLOMAP can use the resulting database file directly — no need to redo those steps.
+
+## What is a COLMAP database?
+
+A COLMAP database is a SQLite file (`.db`) that stores everything needed for reconstruction:
+
+- **Images** — file paths and metadata for each input photo
+- **Cameras** — intrinsic parameters (focal length, distortion) per camera model
+- **Keypoints** — detected feature points per image
+- **Descriptors** — feature descriptors for each keypoint
+- **Matches** — corresponding keypoints between image pairs
+- **Two-view geometries** — verified matches with estimated fundamental/essential matrices
+
+COLMAP's `feature_extractor` and matcher commands (`exhaustive_matcher`, `sequential_matcher`, `vocab_tree_matcher`) populate this database. Once it exists, GLOMAP takes over from there.
+
+## When to use this workflow
+
+Use the from-database workflow when:
+
+- You have already run COLMAP feature extraction and matching on your dataset
+- You want to compare GLOMAP against COLMAP's incremental mapper using the same features
+- You are iterating on reconstruction quality and want to skip the time-consuming matching step
+- You are using a third-party matching tool (such as [hloc](https://github.com/cvg/Hierarchical-Localization/)) that writes results into a COLMAP-compatible database
+
+## Run the mapper
+
+<Steps>
+  <Step title="Verify your database exists">
+    Confirm the database file and images directory are in place:
+
+    ```shell
+    ls ./data/gerrard-hall/database.db
+    ls ./data/gerrard-hall/images/
+    ```
+  </Step>
+
+  <Step title="Create the output directory">
+    GLOMAP will write the sparse reconstruction here. The directory must exist:
+
+    ```shell
+    mkdir -p ./output/gerrard-hall/sparse
+    ```
+  </Step>
+
+  <Step title="Run glomap mapper">
+    Point GLOMAP at your database, images, and output path:
+
+    ```shell
+    glomap mapper \
+        --database_path ./data/gerrard-hall/database.db \
+        --image_path    ./data/gerrard-hall/images \
+        --output_path   ./output/gerrard-hall/sparse
+    ```
+
+    GLOMAP runs the full global SfM pipeline:
+    1. View graph calibration
+    2. Relative pose estimation
+    3. Rotation averaging
+    4. Track establishment
+    5. Global positioning
+    6. Bundle adjustment
+    7. Retriangulation
+  </Step>
+
+  <Step title="Inspect the output">
+    Results are written in COLMAP sparse reconstruction format under a numbered subdirectory:
+
+    ```shell
+    ls ./output/gerrard-hall/sparse/0/
+    # cameras.bin  images.bin  points3D.bin
+    ```
+
+    See [Visualizing results](/guides/visualization) for how to open and explore the reconstruction.
+  </Step>
+</Steps>
+
+## Command reference
+
+| Flag | Description |
+|------|-------------|
+| `--database_path` | Path to the COLMAP `.db` database file |
+| `--image_path` | Directory containing the source images |
+| `--output_path` | Directory where the sparse reconstruction will be written |
+
+Run `glomap mapper -h` to see the full list of options.
+
+<Tip>
+  The `--image_path` flag is required even when starting from a database. GLOMAP uses it to locate image files when writing the reconstruction.
+</Tip>
+
+<Note>
+  GLOMAP outputs into a numbered subdirectory (e.g., `sparse/0/`). If multiple reconstructions are produced, they are written to `sparse/1/`, `sparse/2/`, and so on.
+</Note>

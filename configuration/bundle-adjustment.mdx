@@ -1,0 +1,70 @@
+---
+title: 'Bundle adjustment'
+description: 'Options for the Ceres-based bundle adjuster that jointly refines camera poses, intrinsics, and 3D point positions to minimise reprojection error.'
+---
+
+Bundle adjustment is the final non-linear refinement step in the GLOMAP pipeline. Given an initial reconstruction from global rotation averaging and global positioning, it minimises the sum of squared reprojection errors over all visible 3D-to-2D correspondences by simultaneously adjusting camera rotations, translations, intrinsics, and point positions.
+
+GLOMAP uses [Ceres Solver](http://ceres-solver.org/) with a Huber robust loss function to reduce sensitivity to outlier matches.
+
+`BundleAdjusterOptions` inherits the base solver options from `OptimizationBaseOptions` and adds bundle-adjustment-specific flags.
+
+## What to optimise
+
+<ParamField path="optimize_rig_poses" type="boolean" default="false">
+  Optimise the relative poses between cameras within a rig. Disable when the rig geometry is known and fixed.
+</ParamField>
+
+<ParamField path="optimize_rotations" type="boolean" default="true">
+  Optimise camera rotations (orientation). Disable to keep orientations fixed at the values produced by rotation averaging.
+</ParamField>
+
+<ParamField path="optimize_translation" type="boolean" default="true">
+  Optimise camera translations (position). Disable to keep positions fixed at the values produced by global positioning.
+</ParamField>
+
+<ParamField path="optimize_intrinsics" type="boolean" default="true">
+  Optimise camera intrinsic parameters (focal length, distortion coefficients). Disable when intrinsics are reliably calibrated and should not change.
+</ParamField>
+
+<ParamField path="optimize_principal_point" type="boolean" default="false">
+  Optimise the principal point (cx, cy) as part of intrinsics. Usually left fixed because it is highly correlated with translation and rarely helps without a strong prior.
+</ParamField>
+
+<ParamField path="optimize_points" type="boolean" default="true">
+  Optimise 3D point positions. Disable to run camera-only bundle adjustment (pose-only refinement).
+</ParamField>
+
+## GPU solver
+
+<ParamField path="use_gpu" type="boolean" default="true">
+  Use the GPU-accelerated Ceres linear solver when a compatible GPU is available. Falls back to the CPU solver automatically if no GPU is detected.
+</ParamField>
+
+<ParamField path="gpu_index" type="string" default="-1">
+  Index of the GPU to use. `"-1"` selects the first available GPU automatically. Set to a specific device index (e.g., `"0"`, `"1"`) to pin execution to that GPU.
+</ParamField>
+
+<ParamField path="min_num_images_gpu_solver" type="number" default="50">
+  Minimum number of images required before the GPU solver is used. For smaller problems, the CPU solver is used instead because GPU setup overhead outweighs the benefit.
+</ParamField>
+
+## Track filtering
+
+<ParamField path="min_num_view_per_track" type="number" default="3">
+  Minimum number of images that must observe a 3D point for it to be included in the bundle adjustment. Tracks seen from fewer images are excluded to improve stability.
+</ParamField>
+
+## Robust loss and solver
+
+<ParamField path="thres_loss_function" type="number" default="1.0">
+  Scale parameter for the Huber loss function. Residuals smaller than this value are penalised quadratically; larger residuals are penalised linearly. Setting this lower makes the solver more robust to outliers but may slow convergence. Units are in the same space as the reprojection residual (normalised image coordinates).
+</ParamField>
+
+<ParamField path="solver_options.max_num_iterations" type="number" default="200">
+  Maximum number of Levenberg-Marquardt iterations. The solver terminates early if the `function_tolerance` convergence criterion is met first (default `1e-5`).
+</ParamField>
+
+<Tip>
+  The base class `OptimizationBaseOptions` also exposes `solver_options.num_threads` (defaults to all hardware threads) and `solver_options.function_tolerance` (default `1e-5`). These can be tuned when optimising for speed on large datasets.
+</Tip>

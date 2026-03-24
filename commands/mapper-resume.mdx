@@ -1,0 +1,91 @@
+---
+title: mapper_resume
+description: Refine or continue a reconstruction from an existing COLMAP sparse model.
+---
+
+The `mapper_resume` command loads an existing COLMAP sparse reconstruction and runs the GLOMAP pipeline on it. Use this command when you already have a reconstruction and want to refine it — for example, after improving feature matches or adjusting pipeline options — without starting from scratch.
+
+## Usage
+
+```shell
+glomap mapper_resume \
+    --input_path  MODEL_INPUT \
+    --output_path MODEL_OUTPUT
+```
+
+## When to use `mapper_resume`
+
+- You have an existing COLMAP sparse reconstruction (from COLMAP's incremental mapper or a previous GLOMAP run) and want to re-run or refine the global SfM pipeline.
+- You want to experiment with different pipeline options (e.g. more bundle adjustment iterations) without re-running feature extraction and matching.
+- You are iterating on reconstruction quality and want to skip back to an earlier stage using the pipeline skip flags.
+
+<Note>
+  `mapper_resume` reads the reconstruction from a directory, not from a
+  database file. The input directory must be a valid COLMAP sparse
+  reconstruction (containing `cameras`, `images`, and `points3D` files in
+  binary or text format).
+</Note>
+
+## Required flags
+
+<ParamField path="--input_path" type="string" required>
+  Path to an existing COLMAP sparse reconstruction directory (e.g.
+  `./output/sparse/0`). Must be a directory, not a `.db` file.
+</ParamField>
+
+<ParamField path="--output_path" type="string" required>
+  Path to the directory where the refined reconstruction will be written.
+</ParamField>
+
+## Optional flags
+
+<ParamField path="--image_path" type="string" default="">
+  Path to the images directory. Used when writing output so that image paths
+  are recorded correctly.
+</ParamField>
+
+<ParamField path="--output_format" type="string" default="bin">
+  Format for the output reconstruction. Accepted values: `bin`, `txt`.
+</ParamField>
+
+## Pipeline skip flags
+
+The same pipeline skip flags available on `mapper` are also accepted here, allowing you to run only a subset of the pipeline stages on the loaded reconstruction.
+
+| Flag | Default |
+|---|---|
+| `--skip_preprocessing` | `false` |
+| `--skip_view_graph_calibration` | `false` |
+| `--skip_relative_pose_estimation` | `false` |
+| `--skip_rotation_averaging` | `false` |
+| `--skip_track_establishment` | `false` |
+| `--skip_global_positioning` | `false` |
+| `--skip_bundle_adjustment` | `false` |
+| `--skip_retriangulation` | `false` |
+| `--skip_pruning` | `true` |
+
+See the [mapper reference](/commands/mapper#pipeline-skip-flags) for full descriptions of each flag.
+
+## Iteration control
+
+<ParamField path="--num_iteration_bundle_adjustment" type="int" default="3">
+  Number of bundle adjustment iterations.
+</ParamField>
+
+<ParamField path="--num_iteration_retriangulation" type="int" default="1">
+  Number of retriangulation iterations.
+</ParamField>
+
+## Example
+
+```shell
+glomap mapper_resume \
+    --input_path  ./output/gerrard-hall/sparse/0 \
+    --output_path ./output/gerrard-hall/sparse-refined
+```
+
+<Warning>
+  The `--input_path` must point to a model subdirectory (e.g. `sparse/0`), not
+  the parent sparse directory. GLOMAP will fail with an error if the path is
+  not a directory containing a valid reconstruction.
+</Warning>

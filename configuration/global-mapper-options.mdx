@@ -1,0 +1,78 @@
+---
+title: 'Global mapper options'
+description: 'Top-level options for the GLOMAP global SfM pipeline, controlling iteration counts, pipeline flow, and access to all sub-component configurations.'
+---
+
+`GlobalMapperOptions` is the root configuration struct passed to the `GlobalMapper`. It holds nested option structs for every pipeline stage and a set of top-level flags that control how many times each stage runs and whether any stage can be skipped entirely.
+
+## Iteration counts
+
+<ParamField path="num_iteration_bundle_adjustment" type="number" default="3">
+  Number of times the bundle adjustment stage is repeated during the main reconstruction loop. Increasing this improves accuracy at the cost of longer runtimes.
+</ParamField>
+
+<ParamField path="num_iteration_retriangulation" type="number" default="1">
+  Number of retriangulation passes run after bundle adjustment. Each pass attempts to recover points that were previously discarded or not yet triangulated.
+</ParamField>
+
+## Pipeline flow flags
+
+Each `skip_*` flag short-circuits the corresponding stage. Setting a flag to `true` assumes the relevant data already exists (e.g., from a previous run or an external source).
+
+<ParamField path="skip_preprocessing" type="boolean" default="false">
+  Skip the preprocessing stage, which loads the database, filters image pairs, and prepares the view graph.
+</ParamField>
+
+<ParamField path="skip_view_graph_calibration" type="boolean" default="false">
+  Skip the view-graph calibration stage that refines focal lengths across image pairs before relative pose estimation.
+</ParamField>
+
+<ParamField path="skip_relative_pose_estimation" type="boolean" default="false">
+  Skip two-view relative pose estimation. The view graph must already contain valid relative poses if this is set.
+</ParamField>
+
+<ParamField path="skip_rotation_averaging" type="boolean" default="false">
+  Skip global rotation averaging. Absolute rotations must already be populated in the frames if this is set.
+</ParamField>
+
+<ParamField path="skip_track_establishment" type="boolean" default="false">
+  Skip feature track building from the matched view graph. Tracks must already exist.
+</ParamField>
+
+<ParamField path="skip_global_positioning" type="boolean" default="false">
+  Skip the global positioning stage that solves for all camera translations simultaneously.
+</ParamField>
+
+<ParamField path="skip_bundle_adjustment" type="boolean" default="false">
+  Skip bundle adjustment refinement. The reconstruction will not be refined after global positioning.
+</ParamField>
+
+<ParamField path="skip_retriangulation" type="boolean" default="false">
+  Skip the retriangulation pass that runs after bundle adjustment to recover additional 3D points.
+</ParamField>
+
+<ParamField path="skip_pruning" type="boolean" default="true">
+  Skip the final pruning step that removes weak cameras and tracks. Pruning is disabled by default to preserve the full reconstruction output.
+</ParamField>
+
+## Nested option structs
+
+Each pipeline stage has its own options struct accessible as a field of `GlobalMapperOptions`.
+
+| Field | Type | Stage |
+|---|---|---|
+| `opt_vgcalib` | `ViewGraphCalibratorOptions` | View graph calibration |
+| `opt_relpose` | `RelativePoseEstimationOptions` | Relative pose estimation |
+| `opt_ra` | `RotationEstimatorOptions` | Rotation averaging |
+| `opt_track` | `TrackEstablishmentOptions` | Track establishment |
+| `opt_gp` | `GlobalPositionerOptions` | Global positioning |
+| `opt_ba` | `BundleAdjusterOptions` | Bundle adjustment |
+| `opt_triangulator` | `TriangulatorOptions` | Triangulation |
+| `inlier_thresholds` | `InlierThresholdOptions` | All stages (shared thresholds) |
+
+See the individual configuration pages for the fields within each nested struct:
+
+- [Bundle adjustment](/configuration/bundle-adjustment)
+- [Global positioning](/configuration/global-positioning)
+- [Rotation averaging](/configuration/rotation-averaging)
+- [Inlier thresholds](/configuration/inlier-thresholds)

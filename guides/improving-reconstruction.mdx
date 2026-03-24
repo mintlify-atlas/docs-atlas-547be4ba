@@ -1,0 +1,148 @@
+---
+title: "Improving reconstruction"
+description: "Tune GLOMAP's parameters to get better reconstructions for challenging scenes, large datasets, and high-resolution images."
+---
+
+The default GLOMAP parameters are a reasonable starting point, but they do not guarantee satisfying results in all cases. The following adjustments can improve reconstruction quality, completeness, and speed.
+
+## Share camera parameters
+
+If you know that some or all images were taken with the same physical camera under identical settings, sharing intrinsic parameters across those images helps GLOMAP produce a more accurate calibration.
+
+Set one of these flags on the `colmap feature_extractor` command:
+
+<Tabs>
+  <Tab title="Same camera for all images">
+    Use when all images come from the same physical camera and settings did not change:
+
+    ```shell
+    colmap feature_extractor \
+        --image_path    ./data/south-building/images \
+        --database_path ./data/south-building/database.db \
+        --ImageReader.single_camera_per_folder 1
+    ```
+
+    All images in each folder share one camera model.
+  </Tab>
+
+  <Tab title="One camera per image">
+    Use when each image may have different intrinsics (e.g., a mixed dataset from multiple devices):
+
+    ```shell
+    colmap feature_extractor \
+        --image_path    ./data/south-building/images \
+        --database_path ./data/south-building/database.db \
+        --ImageReader.single_camera_per_image 1
+    ```
+
+    Each image gets its own independent camera model.
+  </Tab>
+</Tabs>
+
+## Handle high-resolution or blurry images
+
+For high-resolution images or images with motion blur, the default epipolar error threshold may be too tight, causing valid matches to be rejected.
+
+Increase the maximum allowed epipolar error in GLOMAP:
+
+```shell
+glomap mapper \
+    --database_path ./data/south-building/database.db \
+    --image_path    ./data/south-building/images \
+    --output_path   ./output/south-building/sparse \
+    --RelPoseEstimation.max_epipolar_error 4
+```
+
+<Tip>
+  Try values of `4` or `10` depending on image quality. Higher values are more permissive and can recover more image pairs at the cost of admitting noisier geometry.
+</Tip>
+
+The default thresholds from the source code are:
+- Essential matrix: `1.0` pixel
+- Fundamental matrix: `4.0` pixels
+- Homography: `4.0` pixels
+
+## Speed up the reconstruction
+
+### Cap the number of tracks
+
+For large scenes, global bundle adjustment over millions of 3D points is slow. You can cap the total number of tracks used during the GLOMAP solve:
+
+```shell
+glomap mapper \
+    --database_path ./data/south-building/database.db \
+    --image_path    ./data/south-building/images \
+    --output_path   ./output/south-building/sparse \
+    --TrackEstablishment.max_num_tracks 50000
+```
+
+A good rule of thumb: set `max_num_tracks` to approximately **1000 × number of images**. For a 50-image dataset, `50000` tracks is a reasonable cap.
+
+<Note>
+  Capping tracks speeds up the GLOMAP solve but produces a sparser point cloud. If you need a dense point cloud afterwards — for example, to initialize Gaussian Splatting — triangulate the full set of points separately:
+
+  ```shell
+  colmap point_triangulator \
+      --database_path ./data/south-building/database.db \
+      --image_path    ./data/south-building/images \
+      --input_path    ./output/south-building/sparse/0 \
+      --output_path   ./output/south-building/sparse/0
+  ```
+
+  If you did not pass `--skip_retriangulation` to `glomap mapper`, retriangulation has already been performed.
+</Note>
+
+### Limit optimization iterations
+
+You can reduce the number of iterations in the two most expensive stages — global positioning and bundle adjustment:
+
+```shell
+glomap mapper \
+    --database_path ./data/south-building/database.db \
+    --image_path    ./data/south-building/images \
+    --output_path   ./output/south-building/sparse \
+    --GlobalPositioning.max_num_iterations 50 \
+    --BundleAdjustment.max_num_iterations 100
+```
+
+The defaults are `200` iterations for bundle adjustment. Reducing these values shortens run time at the cost of final accuracy. Start with lower values to iterate quickly, then increase for a final high-quality solve.
+
+### Enable GPU acceleration
+
+If your system has a compatible GPU, both global positioning and bundle adjustment can be accelerated significantly.
+
+**Requirements:**
+- Ceres 2.3 or later
+- [cuDSS](https://developer.nvidia.com/cudss) installed
+
+Enable GPU solvers with:
+
+```shell
+glomap mapper \
+    --database_path ./data/south-building/database.db \
+    --image_path    ./data/south-building/images \
+    --output_path   ./output/south-building/sparse \
+    --GlobalPositioning.use_gpu 1 \
+    --BundleAdjustment.use_gpu 1
+```
+
+<Warning>
+  GPU acceleration requires Ceres 2.3+ compiled with cuDSS support. If these are not available, the flags are silently ignored and the CPU solver is used. The GPU solver only activates when the reconstruction contains at least 50 images (configurable via `min_num_images_gpu_solver`).
+</Warning>
+
+## Combining options
+
+You can combine multiple flags in a single invocation. For example, a fast initial reconstruction for a large dataset:
+
+```shell
+glomap mapper \
+    --database_path ./data/large-dataset/database.db \
+    --image_path    ./data/large-dataset/images \
+    --output_path   ./output/large-dataset/sparse \
+    --TrackEstablishment.max_num_tracks 200000 \
+    --RelPoseEstimation.max_epipolar_error 4 \
+    --GlobalPositioning.max_num_iterations 50 \
+    --BundleAdjustment.max_num_iterations 100 \
+    --GlobalPositioning.use_gpu 1 \
+    --BundleAdjustment.use_gpu 1
+```

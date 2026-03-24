@@ -1,0 +1,78 @@
+---
+title: 'Inlier thresholds'
+description: 'Thresholds used across all GLOMAP pipeline stages to classify matches, edges, and reconstructed points as inliers or outliers.'
+---
+
+`InlierThresholdOptions` is a shared struct stored inside `GlobalMapperOptions` under the field `inlier_thresholds`. Its values are read by multiple pipeline stages; changing a single value can affect several stages at once.
+
+## 3D-to-2D match thresholds
+
+These thresholds apply to individual point-to-camera observations.
+
+<ParamField path="max_angle_error" type="number" default="1.0">
+  Maximum angular error in degrees for a 3D point observation to be considered an inlier during global positioning. Observations whose bearing-vector angle error exceeds this value are rejected.
+
+  **Tuning:** Increase for scenes with noisy keypoints or imprecise intrinsics. Decrease for highly accurate calibrated rigs where a tighter threshold improves map quality.
+</ParamField>
+
+<ParamField path="max_reprojection_error" type="number" default="0.01">
+  Maximum reprojection error (in normalised image coordinates) for a track observation to be considered an inlier during bundle adjustment and triangulation filtering.
+
+  **Tuning:** This is in normalised coordinates, not pixels. For a 4000 px wide image with a typical focal length of ~3500 px, `0.01` corresponds to roughly 35 pixels — relatively permissive. Tighten to `0.005` or lower for higher-quality reconstructions when intrinsics are well-known.
+</ParamField>
+
+<ParamField path="min_triangulation_angle" type="number" default="1.0">
+  Minimum triangulation angle in degrees required for a track to be triangulated. Points observed from cameras that are nearly co-linear have poorly conditioned depth and are rejected.
+
+  **Tuning:** Increase (e.g., to `2.0`–`3.0` degrees) to filter out weakly triangulated points and reduce depth noise. Decrease only for scenes with very long focal lengths and narrow baselines.
+</ParamField>
+
+## Image-pair (epipolar) thresholds
+
+These thresholds are applied during view-graph calibration and relative pose estimation to filter image pairs.
+
+<ParamField path="max_epipolar_error_E" type="number" default="1.0">
+  Maximum Sampson epipolar error for a correspondence to be an inlier when fitting an essential matrix (calibrated camera pair). Units are in normalised image coordinates.
+
+  **Tuning:** Tighten for well-calibrated scenes to remove more outlier matches before rotation averaging.
+</ParamField>
+
+<ParamField path="max_epipolar_error_F" type="number" default="4.0">
+  Maximum Sampson epipolar error for a correspondence to be an inlier when fitting a fundamental matrix (uncalibrated camera pair). Units are in pixels.
+
+  **Tuning:** The larger default relative to `max_epipolar_error_E` reflects pixel-space units. Lower values reject more matches but may discard valid pairs on wide-baseline or low-overlap image sets.
+</ParamField>
+
+<ParamField path="max_epipolar_error_H" type="number" default="4.0">
+  Maximum transfer error for a correspondence to be an inlier when fitting a homography (planar scene or pure rotation pair). Units are in pixels.
+
+  **Tuning:** Pairs that fit a homography well (e.g., panoramic captures) use this threshold. A value matching `max_epipolar_error_F` is appropriate for most scenes.
+</ParamField>
+
+## Edge (image-pair) quality thresholds
+
+These thresholds determine whether an image pair is kept as a valid edge in the view graph.
+
+<ParamField path="min_inlier_num" type="number" default="30">
+  Minimum number of inlier correspondences required for an image pair to be retained as a valid edge in the view graph. Pairs with fewer inliers are pruned.
+
+  **Tuning:** Lower this threshold (e.g., to `15`) only for datasets with very few image overlaps or low feature density. Raising it improves graph quality at the cost of fewer edges.
+</ParamField>
+
+<ParamField path="min_inlier_ratio" type="number" default="0.25">
+  Minimum ratio of inliers to total matches for an image pair to be retained. A pair that passes `min_inlier_num` but has a very low inlier ratio is likely dominated by outliers and is discarded.
+
+  **Tuning:** Values between `0.15` and `0.35` are typical. Lower the ratio for Internet photo collections where matching quality varies widely.
+</ParamField>
+
+## Rotation consistency threshold
+
+<ParamField path="max_rotation_error" type="number" default="10.0">
+  Maximum angular error in degrees between the relative rotation derived from absolute rotations and the measured pairwise relative rotation. Edges that exceed this threshold are treated as outliers and removed from the view graph before global positioning.
+
+  **Tuning:** A value of `5.0`–`10.0` degrees is standard. Tighten for high-accuracy survey datasets; loosen for challenging Internet collections with imprecise matches.
+</ParamField>
+
+<Warning>
+  All thresholds interact with each other. For example, loosening `min_inlier_num` or `max_epipolar_error_F` will introduce more image pairs into the view graph, which can help coverage but may also propagate noisy relative poses into rotation averaging.
+</Warning>

@@ -1,0 +1,196 @@
+---
+title: "Large-scale datasets"
+description: "Strategies for running GLOMAP on hundreds to thousands of images: matcher selection, memory management, GPU acceleration, and quality thresholds."
+---
+
+Running GLOMAP on large-scale datasets requires attention to feature matching strategy, memory usage, solver configuration, and output quality. This page consolidates the relevant options and recommended workflows.
+
+## Choosing the right matcher
+
+The choice of COLMAP matcher has a larger impact on runtime than almost any other setting. Match all pairs at scale is not feasible — choose a matcher appropriate to your data.
+
+<CardGroup cols={2}>
+  <Card title="Exhaustive matcher" icon="grid-2x2">
+    Compares every pair of images. Suitable only for small datasets (fewer than ~500 images). Runtime is O(n²).
+  </Card>
+  <Card title="Sequential matcher" icon="list-ordered">
+    Matches each image to its neighbors in capture order. Best for video sequences or ordered image captures.
+  </Card>
+  <Card title="Vocabulary tree matcher" icon="tree">
+    Retrieves the most similar images per query using a vocabulary tree index. The recommended choice for large unordered datasets.
+  </Card>
+  <Card title="hloc (learning-based)" icon="cpu">
+    Uses learned local features and image retrieval. See the [Hierarchical-Localization](https://github.com/cvg/Hierarchical-Localization/) project for setup instructions.
+  </Card>
+</CardGroup>
+
+<Tabs>
+  <Tab title="Small datasets (<500 images)">
+    ```bash
+    colmap feature_extractor \
+        --image_path IMAGE_PATH \
+        --database_path DATABASE_PATH
+
+    colmap exhaustive_matcher \
+        --database_path DATABASE_PATH
+    ```
+  </Tab>
+  <Tab title="Sequential / video">
+    ```bash
+    colmap feature_extractor \
+        --image_path IMAGE_PATH \
+        --database_path DATABASE_PATH
+
+    colmap sequential_matcher \
+        --database_path DATABASE_PATH
+    ```
+  </Tab>
+  <Tab title="Large unordered datasets">
+    ```bash
+    colmap feature_extractor \
+        --image_path IMAGE_PATH \
+        --database_path DATABASE_PATH
+
+    colmap vocab_tree_matcher \
+        --database_path DATABASE_PATH \
+        --VocabTreeMatching.vocab_tree_path VOCAB_TREE_PATH
+    ```
+
+    Pre-built vocabulary trees are available from the [COLMAP datasets page](https://demuc.de/colmap/datasets).
+  </Tab>
+</Tabs>
+
+## Controlling memory and runtime
+
+### Cap the number of tracks
+
+The most effective way to reduce both memory usage and runtime is to cap the total number of tracks passed to the optimizer:
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --TrackEstablishment.max_num_tracks 200000
+```
+
+<Tip>
+A good starting point is `1000 × number_of_images`. For a 500-image dataset, try `--TrackEstablishment.max_num_tracks 500000`.
+</Tip>
+
+The default (`10000000`) is effectively unlimited. For large datasets this can lead to very long bundle adjustment times.
+
+### Limit bundle adjustment iterations
+
+Bundle adjustment dominates wall-clock time for large scenes. Limiting iterations trades a small amount of accuracy for a significant reduction in runtime:
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --BundleAdjustment.max_num_iterations 50
+```
+
+The default is `200` (from `solver_options.max_num_iterations` in `BundleAdjusterOptions`). Values between 50 and 100 are typically sufficient for large datasets that will undergo further refinement.
+
+## GPU acceleration
+
+For large scenes, enabling GPU-accelerated solving significantly reduces the time spent in global positioning and bundle adjustment:
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --GlobalPositioning.use_gpu 1 \
+    --BundleAdjustment.use_gpu 1
+```
+
+Prerequisites: Ceres Solver >= 2.3, cuDSS installed, and a CUDA-enabled GLOMAP build (`-DCUDA_ENABLED=ON`). See [GPU acceleration](/advanced/gpu-acceleration) for full setup instructions.
+
+<Note>
+The GPU solver only activates when the number of images meets `min_num_images_gpu_solver` (default `50`). Below that threshold the solver falls back to CPU automatically.
+</Note>
+
+## Retriangulation and dense point clouds
+
+By default, GLOMAP performs a retriangulation pass after bundle adjustment. This populates more of the scene with 3D points but adds runtime.
+
+To skip retriangulation during the mapper run and perform it separately:
+
+```bash
+# Fast mapper run without retriangulation
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --skip_retriangulation 1
+
+# Triangulate the full point cloud afterwards
+colmap point_triangulator \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --input_path OUTPUT_PATH/0 \
+    --output_path OUTPUT_PATH/0
+```
+
+This workflow is useful when you first want a fast reconstruction to verify camera poses, then produce a dense point cloud as a separate step.
+
+## Inlier thresholds
+
+GLOMAP applies inlier thresholds at multiple stages to filter unreliable observations. The defaults are defined in `InlierThresholdOptions` (`glomap/types.h`) and are tuned for typical scenes. For large-scale outdoor datasets with noisy GPS metadata or mixed camera types, you may need to relax some of these.
+
+| Threshold | Default | Applied in |
+|---|---|---|
+| `max_angle_error` | `1.0°` | Global positioning: maximum angular reprojection error |
+| `max_reprojection_error` | `0.01` | Bundle adjustment: maximum reprojection error |
+| `min_triangulation_angle` | `1.0°` | Triangulation: minimum baseline angle |
+| `min_inlier_num` | `30` | Image pair edges: minimum inlier count |
+| `min_inlier_ratio` | `0.25` | Image pair edges: minimum inlier ratio |
+| `max_rotation_error` | `10.0°` | Rotation averaging: maximum rotation error |
+
+<Warning>
+Relaxing `min_inlier_num` or `min_inlier_ratio` below their defaults may retain weak image pair connections in the view graph, which can degrade reconstruction quality. Prefer relaxing these thresholds only after verifying that matches are genuinely sparse rather than incorrect.
+</Warning>
+
+## Recommended workflow for large datasets
+
+<Steps>
+  <Step title="Extract features">
+    ```bash
+    colmap feature_extractor \
+        --image_path IMAGE_PATH \
+        --database_path DATABASE_PATH
+    ```
+  </Step>
+  <Step title="Match with vocabulary tree">
+    ```bash
+    colmap vocab_tree_matcher \
+        --database_path DATABASE_PATH \
+        --VocabTreeMatching.vocab_tree_path VOCAB_TREE_PATH
+    ```
+  </Step>
+  <Step title="Run GLOMAP with capped tracks and GPU">
+    ```bash
+    glomap mapper \
+        --database_path DATABASE_PATH \
+        --image_path IMAGE_PATH \
+        --output_path OUTPUT_PATH \
+        --TrackEstablishment.max_num_tracks 200000 \
+        --BundleAdjustment.max_num_iterations 100 \
+        --GlobalPositioning.use_gpu 1 \
+        --BundleAdjustment.use_gpu 1 \
+        --skip_retriangulation 1
+    ```
+  </Step>
+  <Step title="Triangulate the full point cloud">
+    ```bash
+    colmap point_triangulator \
+        --database_path DATABASE_PATH \
+        --image_path IMAGE_PATH \
+        --input_path OUTPUT_PATH/0 \
+        --output_path OUTPUT_PATH/0
+    ```
+  </Step>
+</Steps>

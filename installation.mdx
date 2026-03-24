@@ -1,0 +1,93 @@
+---
+title: Installation
+description: Build GLOMAP from source or download pre-compiled Windows binaries.
+---
+
+## Prerequisites
+
+Before building GLOMAP, make sure your system has the following:
+
+- **CMake** >= 3.28 (required when using `FetchContent` to fetch COLMAP and PoseLib automatically; can be downgraded to 3.10 if you supply your own COLMAP and PoseLib)
+- **C++17 compiler** — GCC, Clang, or MSVC
+- **COLMAP dependencies** — See the [COLMAP installation guide](https://colmap.github.io/install.html#build-from-source) for the full list of required libraries (Boost, Eigen, FLANN, SQLite, etc.)
+
+<Note>
+GLOMAP fetches [COLMAP](https://github.com/colmap/colmap) and [PoseLib](https://github.com/PoseLib/PoseLib) automatically via CMake `FetchContent` by default. You do not need to install them manually unless you prefer a self-installed version.
+</Note>
+
+## Building from source
+
+<Tabs>
+  <Tab title="Linux / macOS">
+    <Steps>
+      <Step title="Install COLMAP dependencies">
+        Follow the [COLMAP build-from-source guide](https://colmap.github.io/install.html#build-from-source) to install all required system libraries (Boost, Eigen, FLANN, SQLite, FreeImage, etc.) for your platform.
+      </Step>
+
+      <Step title="Configure and build">
+        Clone the repository and build with Ninja:
+
+        ```shell
+        mkdir build
+        cd build
+        cmake .. -GNinja
+        ninja && ninja install
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Windows">
+    Pre-compiled Windows binaries are available on the official release page — no build required.
+
+    Download the latest release from [github.com/colmap/glomap/releases](https://github.com/colmap/glomap/releases), extract the archive, and add the `bin/` directory to your `PATH`.
+  </Tab>
+</Tabs>
+
+## CMake options
+
+Pass any of these flags to the `cmake` command to customise the build:
+
+```shell
+cmake .. -GNinja -DCUDA_ENABLED=OFF -DFETCH_COLMAP=OFF
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `CUDA_ENABLED` | `ON` | Enable CUDA acceleration when a compatible GPU and toolkit are available. |
+| `TESTS_ENABLED` | `OFF` | Build test binaries. |
+| `FETCH_COLMAP` | `ON` | Fetch COLMAP automatically via `FetchContent`. Disable to use a self-installed version. |
+| `FETCH_POSELIB` | `ON` | Fetch PoseLib automatically via `FetchContent`. Disable to use a self-installed version. |
+| `CCACHE_ENABLED` | `ON` | Use `ccache` to speed up recompilation when the tool is available. |
+
+## Using self-installed COLMAP and PoseLib
+
+If you prefer to manage COLMAP and PoseLib yourself, disable the `FetchContent` options:
+
+```shell
+cmake .. -GNinja -DFETCH_COLMAP=OFF -DFETCH_POSELIB=OFF
+```
+
+<Tip>
+When both `FETCH_COLMAP` and `FETCH_POSELIB` are `OFF`, the minimum required CMake version drops from 3.28 to 3.10.
+</Tip>
+
+## CUDA support
+
+CUDA is enabled by default (`CUDA_ENABLED=ON`). If a CUDA-capable GPU and the CUDA Toolkit are present on the build machine, the resulting binary will display:
+
+```
+This version was compiled with CUDA!
+```
+
+To build without CUDA, pass `-DCUDA_ENABLED=OFF` to CMake.
+
+## Installing a newer CMake
+
+If your system ships an older CMake (< 3.28), you can build a recent version from source:
+
+```shell
+wget https://github.com/Kitware/CMake/releases/download/v3.30.1/cmake-3.30.1.tar.gz
+tar xfvz cmake-3.30.1.tar.gz && cd cmake-3.30.1
+./bootstrap && make -j$(nproc) && sudo make install
+```

@@ -1,80 +1,130 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Run a complete Structure-from-Motion reconstruction on a sample dataset in minutes.
 ---
 
-## Get started in three steps
-
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide walks through a full end-to-end reconstruction workflow using a publicly available dataset. By the end you will have a sparse 3D model you can open in the COLMAP GUI.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+GLOMAP requires a COLMAP database as input. If you already have a database, skip to [Run GLOMAP](#run-glomap).
 </Note>
+
+<Steps>
+  <Step title="Download a sample dataset">
+    Download one of the sample datasets from [demuc.de/colmap/datasets](https://demuc.de/colmap/datasets) and place it under a `data/` folder. The examples below use the `south-building` dataset:
+
+    ```
+    data/
+    └── south-building/
+        └── images/
+    ```
+  </Step>
+
+  <Step title="Extract features">
+    Use `colmap feature_extractor` to detect and describe keypoints in each image and write the results to a database:
+
+    ```shell
+    colmap feature_extractor \
+        --image_path    ./data/south-building/images \
+        --database_path ./data/south-building/database.db
+    ```
+  </Step>
+
+  <Step title="Match features">
+    Match keypoints across image pairs. For small datasets, exhaustive matching is straightforward:
+
+    ```shell
+    colmap exhaustive_matcher \
+        --database_path ./data/south-building/database.db
+    ```
+
+    <Tip>
+    For larger datasets, use `sequential_matcher` or `vocab_tree_matcher` instead to keep runtime manageable:
+
+    ```shell
+    colmap sequential_matcher --database_path ./data/south-building/database.db
+    ```
+    </Tip>
+  </Step>
+
+  <Step title="Run GLOMAP">
+    With features and matches in the database, run the global mapper to produce a sparse reconstruction:
+
+    ```shell
+    glomap mapper \
+        --database_path ./data/south-building/database.db \
+        --image_path    ./data/south-building/images \
+        --output_path   ./output/south-building/sparse
+    ```
+
+    GLOMAP writes the reconstruction under `./output/south-building/sparse/` in the standard COLMAP sparse reconstruction format.
+
+    For inline help on all available flags, run:
+
+    ```shell
+    glomap mapper -h
+    ```
+  </Step>
+
+  <Step title="Visualize the results">
+    Open the reconstruction in the COLMAP GUI:
+
+    ```shell
+    colmap gui --import_path ./output/south-building/sparse/0
+    ```
+
+    Alternatively, [rerun.io](https://rerun.io/examples/3d-reconstruction/glomap) supports visualizing COLMAP and GLOMAP outputs directly.
+  </Step>
+</Steps>
+
+## Starting from an existing database
+
+If you already have a COLMAP database (for example, the `gerrard-hall` dataset), you can skip feature extraction and matching and run GLOMAP directly:
+
+```shell
+glomap mapper \
+    --database_path ./data/gerrard-hall/database.db \
+    --image_path    ./data/gerrard-hall/images \
+    --output_path   ./output/gerrard-hall/sparse
+```
+
+## Output format
+
+GLOMAP writes reconstructions in the [COLMAP sparse reconstruction format](https://colmap.github.io/format.html#sparse-reconstruction). The output directory contains:
+
+| File | Contents |
+|------|----------|
+| `cameras.bin` / `cameras.txt` | Camera intrinsics for each camera model |
+| `images.bin` / `images.txt` | Pose and feature observations for each image |
+| `points3D.bin` / `points3D.txt` | 3D point cloud with track information |
+
+You can inspect the reconstruction programmatically using `pycolmap` in Python or by linking against COLMAP's C++ library interface.
+
+## Available commands
+
+<CardGroup cols={3}>
+  <Card title="mapper" icon="map">
+    Full global SfM pipeline from a COLMAP database.
+
+    ```shell
+    glomap mapper \
+      --database_path DB \
+      --image_path IMAGES \
+      --output_path OUTPUT
+    ```
+  </Card>
+  <Card title="mapper_resume" icon="rotate-ccw">
+    Resume a previous reconstruction from an existing model.
+
+    ```shell
+    glomap mapper_resume \
+      --input_path MODEL_INPUT \
+      --output_path MODEL_OUTPUT
+    ```
+  </Card>
+  <Card title="rotation_averager" icon="refresh-cw">
+    Run the standalone rotation averaging module.
+
+    See the [rotation averager guide](/commands/rotation-averager) for full usage details.
+  </Card>
+</CardGroup>

@@ -1,0 +1,165 @@
+---
+title: rotation_averager
+description: Run standalone global rotation averaging from pairwise relative poses, with optional gravity-direction prior for 1-DoF estimation.
+---
+
+The `rotation_averager` command solves the global rotation averaging problem: given pairwise relative rotations between images, it estimates a consistent set of absolute (global) rotations for all images simultaneously.
+
+It supports two modes:
+
+- **3-DoF rotation averaging** — standard mode, no additional priors required.
+- **1-DoF rotation averaging** — uses per-image gravity directions as a prior, reducing the problem to estimating a single degree of freedom (rotation around the gravity axis) per image.
+
+## Usage
+
+<Tabs>
+  <Tab title="3-DoF (standard)">
+    ```shell
+    glomap rotation_averager \
+        --relpose_path RELPOSE_PATH \
+        --output_path  OUTPUT_PATH
+    ```
+  </Tab>
+  <Tab title="1-DoF (with gravity)">
+    ```shell
+    glomap rotation_averager \
+        --relpose_path  RELPOSE_PATH \
+        --output_path   OUTPUT_PATH \
+        --gravity_path  GRAVITY_PATH
+    ```
+  </Tab>
+</Tabs>
+
+## Required flags
+
+<ParamField path="--relpose_path" type="string" required>
+  Path to the relative pose file. See [file formats](#file-formats) for the
+  expected format.
+</ParamField>
+
+<ParamField path="--output_path" type="string" required>
+  Path to the output file where estimated global rotations will be written.
+</ParamField>
+
+## Optional flags
+
+<ParamField path="--gravity_path" type="string" default="">
+  Path to the gravity direction file. Providing this flag switches the solver
+  to 1-DoF rotation averaging. See [file formats](#file-formats) for the
+  expected format.
+</ParamField>
+
+<ParamField path="--use_stratified" type="bool" default="true">
+  Use the stratified solver. Recommended when only a subset of images have a
+  gravity direction available — the solver handles the mixed case gracefully.
+</ParamField>
+
+<ParamField path="--refine_gravity" type="bool" default="false">
+  Refine the gravity measurements before rotation averaging. Set to `1` when
+  gravity measurements are subject to i.i.d. noise.
+</ParamField>
+
+<ParamField path="--weight_path" type="string" default="">
+  Path to an optional edge weight file for the view graph.
+</ParamField>
+
+<ParamField path="--use_weight" type="bool" default="false">
+  Use edge weights from `--weight_path` when solving. Requires `--weight_path`
+  to be set.
+</ParamField>
+
+## 3-DoF vs 1-DoF rotation averaging
+
+### 3-DoF (standard)
+
+In the standard mode, each image's global rotation is a full SO(3) element with three degrees of freedom. The solver finds rotations that are globally consistent with the observed pairwise relative rotations.
+
+Use this mode when:
+- No gravity or IMU data is available.
+- You want the simplest, most general setup.
+
+### 1-DoF (gravity-aligned)
+
+When gravity directions are provided, the absolute rotation of each image is decomposed into a known tilt component (from gravity) and an unknown rotation around the gravity axis. This reduces each image's unknown from 3-DoF to 1-DoF, making the problem significantly more constrained and robust.
+
+The solver implements circular regression over the 1-DoF unknowns, as described in [Gravity-aligned Rotation Averaging with Circular Regression (ECCV 2024)](https://lpanaf.github.io/eccv24_ra1dof/).
+
+Use this mode when:
+- Gravity directions are available from an IMU or upright-image priors.
+- You want more robust and accurate rotation estimates.
+- Only a subset of images have gravity data (set `--use_stratified=1`).
+
+<Tip>
+  If only some of your images have gravity directions, always set
+  `--use_stratified=1`. The stratified solver handles the mixed case — images
+  with and without gravity — in a single unified solve.
+</Tip>
+
+## File formats
+
+### Relative pose file
+
+Each line contains a pair of image names and the relative pose between them:
+
+```
+IMAGE_NAME_1 IMAGE_NAME_2 QW QX QY QZ TX TY TZ
+```
+
+- `QW QX QY QZ` — unit quaternion representing the relative rotation.
+- `TX TY TZ` — translation vector.
+- Convention: the relative pose transforms points from image 1 to image 2, i.e. `R₂₁ · x₁ + t₂₁ = x₂`.
+- Only images that appear in at least one pair will be included in the solve.
+
+### Gravity direction file
+
+Each line contains an image name and its gravity direction in the image coordinate system:
+
+```
+IMAGE_NAME GX GY GZ
+```
+
+- The gravity vector `g` should be `[0, 1, 0]` when the image plane is orthogonal to the ground plane.
+- More precisely, `g` is the second column of the rotation matrix `R` such that `R·X + t = x` (world-to-camera transform).
+- It is valid to provide gravity directions for only a subset of images. Lines referencing unknown image names are ignored.
+
+### Output file
+
+The estimated global rotations are written one per line:
+
+```
+IMAGE_NAME QW QX QY QZ
+```
+
+- `QW QX QY QZ` — unit quaternion representing the absolute (global) rotation.
+- Images not in the largest connected component of the view graph formed by the relative poses are excluded from the output.
+
+## Example
+
+<Steps>
+  <Step title="Run 3-DoF rotation averaging">
+    ```shell
+    glomap rotation_averager \
+        --relpose_path ./data/relative_poses.txt \
+        --output_path  ./output/global_rotations.txt
+    ```
+  </Step>
+  <Step title="Run 1-DoF rotation averaging with gravity">
+    ```shell
+    glomap rotation_averager \
+        --relpose_path ./data/relative_poses.txt \
+        --output_path  ./output/global_rotations.txt \
+        --gravity_path ./data/gravity_directions.txt \
+        --use_stratified=1
+    ```
+  </Step>
+  <Step title="Refine noisy gravity measurements first">
+    ```shell
+    glomap rotation_averager \
+        --relpose_path  ./data/relative_poses.txt \
+        --output_path   ./output/global_rotations.txt \
+        --gravity_path  ./data/gravity_directions.txt \
+        --use_stratified=1 \
+        --refine_gravity=1
+    ```
+  </Step>
+</Steps>

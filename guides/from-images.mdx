@@ -1,0 +1,119 @@
+---
+title: "Reconstruct from images"
+description: "Run the full GLOMAP pipeline starting from raw images: feature extraction, matching, and global SfM."
+---
+
+Starting from a folder of images, you first build a COLMAP database with extracted features and matches, then run GLOMAP's global mapper.
+
+## Overview
+
+The three-step pipeline is:
+
+1. **Feature extraction** — detect and describe keypoints in each image
+2. **Feature matching** — find corresponding keypoints across image pairs
+3. **Global mapping** — run GLOMAP to recover camera poses and a sparse point cloud
+
+Steps 1 and 2 use COLMAP tools and write results to a `.db` database file. Step 3 reads that database and produces the reconstruction.
+
+## Full example: south-building dataset
+
+This example uses the [south-building dataset](https://demuc.de/colmap/datasets). Download it and place it under a `data/` folder.
+
+<Steps>
+  <Step title="Extract features">
+    Run COLMAP's feature extractor to detect keypoints and compute descriptors for every image:
+
+    ```shell
+    colmap feature_extractor \
+        --image_path    ./data/south-building/images \
+        --database_path ./data/south-building/database.db
+    ```
+
+    This creates `database.db` and populates it with keypoints and descriptors.
+  </Step>
+
+  <Step title="Match features">
+    Run exhaustive matching to find correspondences between all image pairs:
+
+    ```shell
+    colmap exhaustive_matcher \
+        --database_path ./data/south-building/database.db
+    ```
+
+    Exhaustive matching compares every pair of images, which is thorough but scales as O(n²). For larger datasets, use a different matcher (see below).
+  </Step>
+
+  <Step title="Run the global mapper">
+    With the database populated, run GLOMAP:
+
+    ```shell
+    glomap mapper \
+        --database_path ./data/south-building/database.db \
+        --image_path    ./data/south-building/images \
+        --output_path   ./output/south-building/sparse
+    ```
+  </Step>
+
+  <Step title="View the results">
+    Open the reconstruction in the COLMAP GUI:
+
+    ```shell
+    colmap gui --import_path ./output/south-building/sparse/0
+    ```
+
+    See [Visualizing results](/guides/visualization) for more options.
+  </Step>
+</Steps>
+
+## Choosing a matcher
+
+Exhaustive matching works well for small datasets but becomes slow for large ones. Choose the matcher that fits your dataset size and capture style:
+
+<Tabs>
+  <Tab title="exhaustive_matcher">
+    Compares every image pair. Best for small datasets (up to ~100 images).
+
+    ```shell
+    colmap exhaustive_matcher \
+        --database_path ./data/south-building/database.db
+    ```
+  </Tab>
+
+  <Tab title="sequential_matcher">
+    Only matches images that are adjacent in filename order. Ideal for video sequences or ordered image captures where consecutive frames overlap.
+
+    ```shell
+    colmap sequential_matcher \
+        --database_path DATABASE_PATH
+    ```
+  </Tab>
+
+  <Tab title="vocab_tree_matcher">
+    Uses a vocabulary tree to retrieve the most visually similar images for each query. Scales well to large datasets (thousands of images).
+
+    ```shell
+    colmap vocab_tree_matcher \
+        --database_path DATABASE_PATH \
+        --VocabTreeMatching.vocab_tree_path VOCAB_TREE_PATH
+    ```
+
+    Pre-trained vocabulary trees are available from the [COLMAP datasets page](https://demuc.de/colmap/datasets).
+  </Tab>
+</Tabs>
+
+## Using learning-based descriptors with hloc
+
+For improved matching quality — especially in challenging conditions like low texture, repetitive patterns, or varying illumination — you can use [hloc (Hierarchical-Localization)](https://github.com/cvg/Hierarchical-Localization/) instead of COLMAP's built-in extractor and matcher.
+
+hloc supports learning-based descriptors (SuperPoint, DISK, etc.) and writes its output to a COLMAP-compatible database. Once the database is ready, run GLOMAP the same way:
+
+```shell
+glomap mapper \
+    --database_path PATH_TO_HLOC_DATABASE \
+    --image_path    PATH_TO_IMAGES \
+    --output_path   OUTPUT_PATH
+```
+
+<Note>
+  For more details on the `glomap mapper` flags, run `glomap mapper -h`. To improve reconstruction quality, see [Improving reconstruction](/guides/improving-reconstruction).
+</Note>

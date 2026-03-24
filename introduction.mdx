@@ -1,0 +1,93 @@
+---
+title: "GLOMAP — Global Structure-from-Motion Revisited"
+description: "A fast, scalable global Structure-from-Motion pipeline that produces COLMAP-compatible 3D reconstructions 1–2 orders of magnitude faster than incremental SfM."
+---
+
+<Warning>
+  This standalone repository is deprecated and no longer maintained. GLOMAP functionality has been fully migrated to [COLMAP](https://github.com/colmap/colmap/), where it is exposed as the "global" mapper.
+</Warning>
+
+## What is GLOMAP?
+
+GLOMAP is a general-purpose **global Structure-from-Motion (SfM)** pipeline for image-based 3D reconstruction. Unlike incremental SfM approaches that register images one at a time, GLOMAP solves for all camera poses simultaneously using global rotation averaging and global positioning — making it dramatically faster while maintaining reconstruction quality.
+
+Key properties:
+
+- Takes a **COLMAP database** as input (feature extraction and matching handled by COLMAP)
+- Outputs a **COLMAP sparse reconstruction** — fully compatible with downstream tools
+- Typically **10–100× faster** than COLMAP's incremental mapper
+- On-par or superior reconstruction quality compared to incremental SfM
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="wrench" href="/installation">
+    Build GLOMAP from source or download pre-compiled Windows binaries
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run your first reconstruction in minutes
+  </Card>
+  <Card title="Command Reference" icon="terminal" href="/commands/overview">
+    Explore all CLI commands and their options
+  </Card>
+  <Card title="Improving Reconstruction" icon="sliders" href="/guides/improving-reconstruction">
+    Tips for better reconstruction quality and speed
+  </Card>
+</CardGroup>
+
+## How it works
+
+GLOMAP runs a modular pipeline with the following stages:
+
+<Steps>
+  <Step title="View graph calibration">
+    Calibrates the view graph using camera intrinsics from the COLMAP database.
+  </Step>
+  <Step title="Relative pose estimation">
+    Estimates pairwise relative poses between image pairs using RANSAC-based essential/fundamental matrix estimation via PoseLib.
+  </Step>
+  <Step title="Global rotation averaging">
+    Solves for all absolute rotations simultaneously using global rotation averaging (optionally with a gravity prior for 1-DoF rotation).
+  </Step>
+  <Step title="Track establishment">
+    Builds feature tracks across images from pairwise correspondences.
+  </Step>
+  <Step title="Global positioning">
+    Solves for all camera positions simultaneously using the estimated rotations and track observations.
+  </Step>
+  <Step title="Bundle adjustment">
+    Jointly refines all camera poses and 3D point positions using Ceres Solver (with optional GPU acceleration).
+  </Step>
+  <Step title="Retriangulation">
+    Re-triangulates 3D points to improve the final reconstruction density.
+  </Step>
+</Steps>
+
+## Relationship to COLMAP
+
+GLOMAP is designed to work **alongside COLMAP**, not replace it entirely:
+
+| Task | Tool |
+|------|------|
+| Feature extraction | `colmap feature_extractor` |
+| Feature matching | `colmap exhaustive_matcher` / `sequential_matcher` / `vocab_tree_matcher` |
+| **Global mapping** | **`glomap mapper`** |
+| Visualization | `colmap gui` |
+| Dense reconstruction | `colmap patch_match_stereo` |
+
+## Citation
+
+If you use GLOMAP in your research, please cite:
+
+```bibtex
+@inproceedings{pan2024glomap,
+    author={Pan, Linfei and Barath, Daniel and Pollefeys, Marc and Sch\"{o}nberger, Johannes Lutz},
+    title={{Global Structure-from-Motion Revisited}},
+    booktitle={European Conference on Computer Vision (ECCV)},
+    year={2024},
+}
+```
+
+## Support
+
+- **Questions**: [GitHub Discussions](https://github.com/colmap/glomap/discussions)
+- **Bug reports & feature requests**: [GitHub Issues](https://github.com/colmap/glomap/issues)
+- **Contributions**: Pull requests are welcome

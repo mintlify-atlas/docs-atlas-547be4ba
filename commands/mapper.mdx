@@ -1,0 +1,153 @@
+---
+title: mapper
+description: Run the full GLOMAP global Structure-from-Motion pipeline from a COLMAP database.
+---
+
+The `mapper` command runs the complete global SfM pipeline starting from a COLMAP database. It reads features and matches from the database, solves for all camera poses simultaneously, and writes a COLMAP-compatible sparse reconstruction.
+
+## Usage
+
+```shell
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path    IMAGE_PATH \
+    --output_path   OUTPUT_PATH
+```
+
+## Example
+
+```shell
+glomap mapper \
+    --database_path ./data/gerrard-hall/database.db \
+    --image_path    ./data/gerrard-hall/images \
+    --output_path   ./output/gerrard-hall/sparse
+```
+
+<Note>
+  The database must already contain extracted features and matches. Use
+  `colmap feature_extractor` and a COLMAP matcher (e.g. `exhaustive_matcher`,
+  `sequential_matcher`, or `vocab_tree_matcher`) to populate it before running
+  `glomap mapper`.
+</Note>
+
+## Required flags
+
+<ParamField path="--database_path" type="string" required>
+  Path to the COLMAP database file (`.db`). The database must contain features
+  and image pair matches.
+</ParamField>
+
+<ParamField path="--output_path" type="string" required>
+  Path to the directory where the sparse reconstruction will be written. The
+  directory does not need to exist beforehand.
+</ParamField>
+
+## Optional flags
+
+<ParamField path="--image_path" type="string" default="">
+  Path to the images directory. Used when writing the output reconstruction so
+  that image paths are recorded correctly. Not required if you do not need
+  image paths in the output.
+</ParamField>
+
+<ParamField path="--constraint_type" type="string" default="ONLY_POINTS">
+  Constraint type used by the global positioner. Accepted values:
+  `ONLY_POINTS`, `ONLY_CAMERAS`, `POINTS_AND_CAMERAS_BALANCED`,
+  `POINTS_AND_CAMERAS`.
+</ParamField>
+
+<ParamField path="--output_format" type="string" default="bin">
+  Format for writing the COLMAP reconstruction. Accepted values: `bin`, `txt`.
+</ParamField>
+
+## Pipeline skip flags
+
+Each stage of the pipeline can be skipped independently. This is useful when you want to resume from a partially completed run or benchmark individual components.
+
+<ParamField path="--skip_preprocessing" type="bool" default="false">
+  Skip the preprocessing step.
+</ParamField>
+
+<ParamField path="--skip_view_graph_calibration" type="bool" default="false">
+  Skip view graph calibration using camera intrinsics.
+</ParamField>
+
+<ParamField path="--skip_relative_pose_estimation" type="bool" default="false">
+  Skip pairwise relative pose estimation.
+</ParamField>
+
+<ParamField path="--skip_rotation_averaging" type="bool" default="false">
+  Skip global rotation averaging.
+</ParamField>
+
+<ParamField path="--skip_track_establishment" type="bool" default="false">
+  Skip feature track building.
+</ParamField>
+
+<ParamField path="--skip_global_positioning" type="bool" default="false">
+  Skip global camera position solving.
+</ParamField>
+
+<ParamField path="--skip_bundle_adjustment" type="bool" default="false">
+  Skip bundle adjustment.
+</ParamField>
+
+<ParamField path="--skip_retriangulation" type="bool" default="false">
+  Skip re-triangulation of 3D points after bundle adjustment.
+</ParamField>
+
+<ParamField path="--skip_pruning" type="bool" default="true">
+  Skip pruning of poorly-supported points and observations. Pruning is disabled
+  by default.
+</ParamField>
+
+## Iteration control
+
+<ParamField path="--num_iteration_bundle_adjustment" type="int" default="3">
+  Number of bundle adjustment iterations to run.
+</ParamField>
+
+<ParamField path="--num_iteration_retriangulation" type="int" default="1">
+  Number of retriangulation iterations to run.
+</ParamField>
+
+## End-to-end example
+
+The following example starts from raw images, builds a COLMAP database, and runs GLOMAP.
+
+<Steps>
+  <Step title="Extract features">
+    ```shell
+    colmap feature_extractor \
+        --image_path    ./data/south-building/images \
+        --database_path ./data/south-building/database.db
+    ```
+  </Step>
+  <Step title="Match features">
+    ```shell
+    colmap exhaustive_matcher \
+        --database_path ./data/south-building/database.db
+    ```
+    <Tip>
+      For large datasets, prefer `sequential_matcher` or `vocab_tree_matcher`
+      to keep matching time tractable.
+    </Tip>
+  </Step>
+  <Step title="Run GLOMAP">
+    ```shell
+    glomap mapper \
+        --database_path ./data/south-building/database.db \
+        --image_path    ./data/south-building/images \
+        --output_path   ./output/south-building/sparse
+    ```
+  </Step>
+  <Step title="Visualize">
+    ```shell
+    colmap gui --import_path ./output/south-building/sparse/0
+    ```
+  </Step>
+</Steps>
+
+## Output format
+
+Results are written in the standard COLMAP sparse reconstruction format (binary by default, text with `--output_format txt`). The output is compatible with all COLMAP downstream tools and viewers such as `colmap gui` and [rerun.io](https://rerun.io/examples/3d-reconstruction/glomap).

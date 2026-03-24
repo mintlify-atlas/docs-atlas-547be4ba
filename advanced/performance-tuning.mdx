@@ -1,0 +1,120 @@
+---
+title: "Performance tuning"
+description: "Cap tracks, limit solver iterations, and selectively skip pipeline stages to speed up GLOMAP reconstructions."
+---
+
+GLOMAP's global SfM pipeline runs several stages in sequence. For large or time-sensitive datasets you can reduce runtime by capping the number of tracks fed into optimization, limiting Ceres solver iterations, and skipping stages that are not needed for a given run.
+
+## Capping track count
+
+Global bundle adjustment runtime scales with the number of 3D tracks. When image count or feature density is high, capping the track count is the most effective single knob for controlling runtime.
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --TrackEstablishment.max_num_tracks 50000
+```
+
+<Tip>
+As a rule of thumb, one image does not need more than 1000 tracks to achieve good reconstruction quality. Set `max_num_tracks` to approximately `1000 × number_of_images`.
+</Tip>
+
+The default value is `10000000` (effectively unlimited). The option is defined in `TrackEstablishmentOptions`:
+
+| Option | Default | Description |
+|---|---|---|
+| `--TrackEstablishment.max_num_tracks` | `10000000` | Maximum total number of tracks passed to the optimizer |
+| `--TrackEstablishment.min_num_view_per_track` | `3` | Minimum number of views a track must appear in |
+| `--TrackEstablishment.max_num_view_per_track` | `100` | Maximum number of views per track |
+
+### Recovering the full point cloud
+
+Capping tracks speeds up the mapper but produces a sparser point cloud. To recover a dense point cloud afterwards — for example, to initialize Gaussian Splatting — run COLMAP's triangulator on the solved camera poses:
+
+```bash
+colmap point_triangulator \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --input_path OUTPUT_PATH/0 \
+    --output_path OUTPUT_PATH/0
+```
+
+<Note>
+If `--skip_retriangulation` is not set when calling `glomap mapper`, retriangulation is already performed as part of the pipeline. You only need to run `colmap point_triangulator` separately when you want the densest possible point cloud after a capped run.
+</Note>
+
+## Limiting solver iterations
+
+Two stages consume the most CPU time: global positioning and bundle adjustment. Both expose a `max_num_iterations` option.
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --GlobalPositioning.max_num_iterations 30 \
+    --BundleAdjustment.max_num_iterations 50
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--GlobalPositioning.max_num_iterations` | *(solver default)* | Maximum Ceres iterations for global positioning |
+| `--BundleAdjustment.max_num_iterations` | `200` | Maximum Ceres iterations for bundle adjustment |
+
+The Ceres `solver_options.max_num_iterations` default of `200` is set in `BundleAdjusterOptions`. Reducing it to 50–100 typically still yields accurate results while cutting wall-clock time significantly.
+
+## Bundle adjustment options
+
+`BundleAdjusterOptions` controls which parameters Ceres optimizes. Fixing parameters you do not need reduces problem size and iteration cost.
+
+| Option | Default | Description |
+|---|---|---|
+| `optimize_rotations` | `true` | Optimize camera rotations |
+| `optimize_translation` | `true` | Optimize camera translations |
+| `optimize_intrinsics` | `true` | Optimize focal length and distortion |
+| `optimize_principal_point` | `false` | Optimize the principal point |
+| `optimize_points` | `true` | Optimize 3D point positions |
+| `min_num_view_per_track` | `3` | Minimum views a track must have to be included in BA |
+
+To lock intrinsics (useful when camera parameters are known and trustworthy):
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --BundleAdjustment.optimize_intrinsics 0
+```
+
+## Skipping pipeline stages
+
+`GlobalMapperOptions` exposes skip flags for every stage of the pipeline. Use these when you want to resume from an intermediate result or when a stage is known to be unnecessary.
+
+| Flag | Default | Stage skipped |
+|---|---|---|
+| `--skip_preprocessing` | `false` | Initial database preprocessing |
+| `--skip_view_graph_calibration` | `false` | View graph calibration |
+| `--skip_relative_pose_estimation` | `false` | Relative pose estimation between image pairs |
+| `--skip_rotation_averaging` | `false` | Global rotation averaging |
+| `--skip_track_establishment` | `false` | Track establishment |
+| `--skip_global_positioning` | `false` | Global camera positioning |
+| `--skip_bundle_adjustment` | `false` | Bundle adjustment |
+| `--skip_retriangulation` | `false` | Post-BA retriangulation |
+
+<Warning>
+Skip flags assume that the corresponding outputs are already available from a previous run or are intentionally omitted. Skipping a stage whose outputs are missing will cause downstream stages to fail.
+</Warning>
+
+### Example: skip retriangulation for a faster final output
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --skip_retriangulation 1
+```
+
+This saves one pass over all tracks after bundle adjustment. Use `colmap point_triangulator` later if you need the denser point cloud.

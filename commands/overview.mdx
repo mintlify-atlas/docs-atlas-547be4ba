@@ -1,0 +1,68 @@
+---
+title: Commands overview
+description: All CLI commands available in the glomap binary, with usage patterns and help flags.
+---
+
+The `glomap` binary exposes three commands. Every command follows the same general pattern:
+
+```shell
+glomap <command> [options]
+```
+
+## Available commands
+
+<CardGroup cols={3}>
+  <Card title="mapper" icon="map" href="/commands/mapper">
+    Run a full global Structure-from-Motion pipeline starting from a COLMAP database.
+  </Card>
+  <Card title="mapper_resume" icon="rotate-ccw" href="/commands/mapper-resume">
+    Refine or continue from an existing COLMAP sparse reconstruction.
+  </Card>
+  <Card title="rotation_averager" icon="compass" href="/commands/rotation-averager">
+    Run standalone global rotation averaging, optionally with a gravity prior.
+  </Card>
+</CardGroup>
+
+## Getting help
+
+To print the list of available commands and general usage:
+
+```shell
+glomap -h
+```
+
+To print detailed options for a specific command:
+
+```shell
+glomap mapper -h
+glomap mapper_resume -h
+glomap rotation_averager -h
+```
+
+## CUDA build indicator
+
+When you run `glomap -h` (or any help invocation), the binary prints whether it was compiled with CUDA support:
+
+```
+GLOMAP -- Global Structure-from-Motion
+
+This version was compiled with CUDA!
+```
+
+or
+
+```
+GLOMAP -- Global Structure-from-Motion
+
+This version was NOT compiled CUDA!
+```
+
+CUDA accelerates bundle adjustment. If CUDA is not shown as enabled and you need GPU-accelerated solving, rebuild with a CUDA-capable toolchain.
+
+## Command quick reference
+
+| Command | Required inputs | Output |
+|---|---|---|
+| `mapper` | COLMAP database, images directory | COLMAP sparse reconstruction |
+| `mapper_resume` | Existing COLMAP reconstruction | Refined COLMAP sparse reconstruction |
+| `rotation_averager` | Relative pose file | Global rotation file |

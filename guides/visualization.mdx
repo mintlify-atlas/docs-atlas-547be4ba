@@ -1,0 +1,120 @@
+---
+title: "Visualizing results"
+description: "Open, inspect, and export GLOMAP reconstructions using the COLMAP GUI, rerun.io, pycolmap, or downstream tools."
+---
+
+GLOMAP writes its output in the COLMAP sparse reconstruction format. Any tool that reads COLMAP sparse models can work with GLOMAP output.
+
+## Output format
+
+Results are written to a numbered subdirectory inside your `--output_path`:
+
+```
+output/south-building/sparse/
+└── 0/
+    ├── cameras.bin   # Camera intrinsic models
+    ├── images.bin    # Image poses (extrinsics) and 2D keypoints
+    └── points3D.bin  # 3D point cloud with track information
+```
+
+Text variants (`cameras.txt`, `images.txt`, `points3D.txt`) are also supported by COLMAP tools and are human-readable. Refer to the [COLMAP sparse reconstruction format](https://colmap.github.io/format.html#sparse-reconstruction) for a full schema description.
+
+## COLMAP GUI
+
+The COLMAP GUI provides an interactive 3D viewer for sparse reconstructions.
+
+```shell
+colmap gui --import_path ./output/south-building/sparse/0
+```
+
+This opens the COLMAP graphical interface with the reconstruction pre-loaded. You can:
+- Rotate and zoom through the point cloud
+- Inspect individual camera poses
+- Click on images to see their position in the scene
+- Export the model in various formats
+
+<Note>
+  The `--import_path` must point to the numbered subdirectory (e.g., `sparse/0`), not the parent `sparse/` folder.
+</Note>
+
+## rerun.io
+
+[rerun.io](https://rerun.io/examples/3d-reconstruction/glomap) provides an alternative visualization experience for COLMAP and GLOMAP outputs. It offers a timeline view and supports streaming data, making it useful for visualizing reconstructions as they are built or for debugging intermediate results.
+
+See the [GLOMAP example on rerun.io](https://rerun.io/examples/3d-reconstruction/glomap) for a live demo and integration instructions.
+
+## Programmatic access
+
+You can read and manipulate the reconstruction directly in code.
+
+<Tabs>
+  <Tab title="Python (pycolmap)">
+    [pycolmap](https://github.com/colmap/pycolmap) is the official Python binding for COLMAP's data structures:
+
+    ```python
+    import pycolmap
+
+    reconstruction = pycolmap.Reconstruction("./output/south-building/sparse/0")
+
+    print(f"Cameras:  {len(reconstruction.cameras)}")
+    print(f"Images:   {len(reconstruction.images)}")
+    print(f"3D points: {len(reconstruction.points3D)}")
+
+    for image_id, image in reconstruction.images.items():
+        print(image_id, image.name, image.cam_from_world)
+    ```
+  </Tab>
+
+  <Tab title="C++ (COLMAP library)">
+    Link against COLMAP's C++ library and use the `Reconstruction` class:
+
+    ```cpp
+    #include <colmap/scene/reconstruction.h>
+
+    colmap::Reconstruction reconstruction;
+    reconstruction.Read("./output/south-building/sparse/0");
+
+    std::cout << "Images: " << reconstruction.NumImages() << std::endl;
+    std::cout << "Points: " << reconstruction.NumPoints3D() << std::endl;
+    ```
+  </Tab>
+</Tabs>
+
+## Downstream use: Gaussian Splatting
+
+Gaussian Splatting initializes from a dense point cloud. Because GLOMAP can cap the number of tracks during its solve for speed, you may need to triangulate additional points before passing the reconstruction to a Gaussian Splatting pipeline.
+
+<Steps>
+  <Step title="Run GLOMAP mapper">
+    Obtain camera poses first (optionally with a capped track count for speed):
+
+    ```shell
+    glomap mapper \
+        --database_path ./data/south-building/database.db \
+        --image_path    ./data/south-building/images \
+        --output_path   ./output/south-building/sparse
+    ```
+  </Step>
+
+  <Step title="Triangulate the full point cloud">
+    Use `colmap point_triangulator` to densify the reconstruction using all available matches from the database:
+
+    ```shell
+    colmap point_triangulator \
+        --database_path ./data/south-building/database.db \
+        --image_path    ./data/south-building/images \
+        --input_path    ./output/south-building/sparse/0 \
+        --output_path   ./output/south-building/sparse/0
+    ```
+
+    This adds far more 3D points while keeping the camera poses fixed.
+  </Step>
+
+  <Step title="Pass to Gaussian Splatting">
+    The updated reconstruction in `sparse/0/` now contains a dense point cloud and can be used directly as the SfM input for Gaussian Splatting training.
+  </Step>
+</Steps>
+
+<Tip>
+  If you did not pass `--skip_retriangulation` when running `glomap mapper`, retriangulation was already performed and you may not need a separate `point_triangulator` step.
+</Tip>

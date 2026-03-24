@@ -1,0 +1,89 @@
+---
+title: 'Global positioning'
+description: 'Options for the global positioning stage that simultaneously solves for all camera translations given known rotations.'
+---
+
+Global positioning solves for all camera translation vectors and 3D point positions in a single optimisation, given the absolute rotations produced by the rotation averaging stage. Rather than incrementally adding cameras one at a time, GLOMAP formulates the problem as a large sparse Ceres optimisation that can exploit GPU acceleration.
+
+The primary constraint type is `ONLY_POINTS`, where the objective is to find camera positions and 3D point locations such that each point projects as closely as possible to its observed 2D keypoint in every camera.
+
+`GlobalPositionerOptions` inherits the base solver options from `OptimizationBaseOptions`.
+
+## Constraint type
+
+<ParamField path="constraint_type" type="string" default="ONLY_POINTS">
+  The type of geometric constraints added to the optimisation problem.
+
+  | Value | Description |
+  |---|---|
+  | `ONLY_POINTS` | Camera-to-point constraints only. Recommended for most scenes. |
+  | `ONLY_CAMERAS` | Camera-to-camera constraints derived from relative translations only. |
+  | `POINTS_AND_CAMERAS_BALANCED` | Both constraint types, reweighted so their total contributions are equal. |
+  | `POINTS_AND_CAMERAS` | Both constraint types with equal per-constraint weight. |
+</ParamField>
+
+<ParamField path="constraint_reweight_scale" type="number" default="1.0">
+  Reweighting scale applied when `constraint_type` is `POINTS_AND_CAMERAS_BALANCED`. Has no effect for other constraint types.
+</ParamField>
+
+## Initialisation
+
+<ParamField path="generate_random_positions" type="boolean" default="true">
+  Initialise camera positions randomly before optimisation. Disable only if starting from an existing set of positions.
+</ParamField>
+
+<ParamField path="generate_random_points" type="boolean" default="true">
+  Initialise 3D point positions randomly before optimisation.
+</ParamField>
+
+<ParamField path="generate_scales" type="boolean" default="true">
+  Initialise auxiliary scale variables. Scale variables mediate the relationship between relative translation directions and absolute positions. Currently the initialisation uses a fixed scale of 1.
+</ParamField>
+
+<ParamField path="seed" type="number" default="1">
+  Random seed used for position and point initialisation. Set to a fixed value for reproducible reconstructions.
+</ParamField>
+
+## What to optimise
+
+<ParamField path="optimize_positions" type="boolean" default="true">
+  Optimise camera translation vectors.
+</ParamField>
+
+<ParamField path="optimize_points" type="boolean" default="true">
+  Optimise 3D point positions jointly with camera positions.
+</ParamField>
+
+<ParamField path="optimize_scales" type="boolean" default="true">
+  Optimise auxiliary per-image-pair scale variables that account for the unknown scale of relative translations.
+</ParamField>
+
+## GPU solver
+
+<ParamField path="use_gpu" type="boolean" default="true">
+  Use the GPU-accelerated Ceres linear solver when a compatible GPU is available.
+</ParamField>
+
+<ParamField path="gpu_index" type="string" default="-1">
+  Index of the GPU device to use. `"-1"` selects the first available GPU automatically.
+</ParamField>
+
+<ParamField path="min_num_images_gpu_solver" type="number" default="50">
+  Minimum number of images required to use the GPU solver. Smaller problems run on CPU.
+</ParamField>
+
+## Track filtering
+
+<ParamField path="min_num_view_per_track" type="number" default="3">
+  Minimum number of images that must observe a 3D point for it to be included in the global positioning problem.
+</ParamField>
+
+## Robust loss
+
+<ParamField path="thres_loss_function" type="number" default="0.1">
+  Scale parameter for the Huber loss function applied to positioning residuals. Smaller values make the solver more outlier-robust at the cost of slower convergence.
+</ParamField>
+
+<Note>
+  The `function_tolerance` and `max_num_iterations` solver options are inherited from `OptimizationBaseOptions` (defaults: `1e-5` and `100` respectively).
+</Note>

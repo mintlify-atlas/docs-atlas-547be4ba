@@ -1,0 +1,128 @@
+---
+title: "GPU acceleration"
+description: "Build GLOMAP with CUDA support and enable GPU-accelerated global positioning and bundle adjustment."
+---
+
+GLOMAP supports GPU-accelerated solving for both global positioning and bundle adjustment via Ceres Solver's cuDSS backend. When enabled, these stages can be substantially faster, especially on large datasets.
+
+## Prerequisites
+
+Before building with GPU support, ensure the following are installed on your system:
+
+<Steps>
+  <Step title="Install a CUDA toolkit">
+    A CUDA-capable GPU and a compatible CUDA toolkit must be present. Verify with:
+
+    ```bash
+    nvcc --version
+    ```
+  </Step>
+  <Step title="Install cuDSS">
+    cuDSS is the CUDA sparse direct solver library required by Ceres. Download and install it from NVIDIA's developer portal. Ceres Solver 2.3 or above must be built against it.
+  </Step>
+  <Step title="Install Ceres Solver >= 2.3">
+    GPU-accelerated solving in Ceres is available from version 2.3 onwards. Earlier versions do not support the cuDSS backend.
+
+    ```bash
+    # Verify your Ceres version
+    pkg-config --modversion ceres
+    ```
+  </Step>
+</Steps>
+
+## Building with CUDA enabled
+
+CUDA support is controlled by the `CUDA_ENABLED` CMake option, which defaults to `ON`. If your environment has CUDA available, a standard build will already attempt to enable it:
+
+```bash
+mkdir build
+cd build
+cmake .. -GNinja -DCUDA_ENABLED=ON
+ninja && ninja install
+```
+
+<Tabs>
+  <Tab title="CUDA enabled (default)">
+    ```bash
+    cmake .. -GNinja -DCUDA_ENABLED=ON
+    ```
+  </Tab>
+  <Tab title="CUDA disabled">
+    ```bash
+    cmake .. -GNinja -DCUDA_ENABLED=OFF
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+`CUDA_ENABLED=ON` is the CMake default (`option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)`). The build will only activate CUDA paths if the toolkit is actually found on the system.
+</Note>
+
+## Enabling GPU solving at runtime
+
+Even with a CUDA-enabled build, the GPU solver is opt-in via command-line flags. Pass both flags to accelerate global positioning and bundle adjustment:
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --GlobalPositioning.use_gpu 1 \
+    --BundleAdjustment.use_gpu 1
+```
+
+## GPU options reference
+
+Both `GlobalPositionerOptions` and `BundleAdjusterOptions` share the same set of GPU-related fields:
+
+| Option | Default | Description |
+|---|---|---|
+| `--GlobalPositioning.use_gpu` | `true` | Use GPU solver for global positioning |
+| `--GlobalPositioning.gpu_index` | `"-1"` | GPU device index; `-1` selects automatically |
+| `--GlobalPositioning.min_num_images_gpu_solver` | `50` | Minimum image count before the GPU solver is engaged |
+| `--BundleAdjustment.use_gpu` | `true` | Use GPU solver for bundle adjustment |
+| `--BundleAdjustment.gpu_index` | `"-1"` | GPU device index; `-1` selects automatically |
+| `--BundleAdjustment.min_num_images_gpu_solver` | `50` | Minimum image count before the GPU solver is engaged |
+
+### Selecting a specific GPU
+
+On multi-GPU systems, specify a device by its index:
+
+```bash
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --BundleAdjustment.use_gpu 1 \
+    --BundleAdjustment.gpu_index 0 \
+    --GlobalPositioning.use_gpu 1 \
+    --GlobalPositioning.gpu_index 0
+```
+
+### Minimum image threshold
+
+The GPU solver is only activated when the number of images in the problem meets or exceeds `min_num_images_gpu_solver` (default `50`). For smaller scenes the overhead of transferring data to the GPU outweighs the benefit, so the solver falls back to Ceres on CPU automatically.
+
+```bash
+# Lower the threshold to use GPU even for smaller datasets
+glomap mapper \
+    --database_path DATABASE_PATH \
+    --image_path IMAGE_PATH \
+    --output_path OUTPUT_PATH \
+    --BundleAdjustment.use_gpu 1 \
+    --BundleAdjustment.min_num_images_gpu_solver 20
+```
+
+## Fallback behavior
+
+<Note>
+If the GPU solver is unavailable at runtime — because cuDSS is not installed, CUDA is not found, or the image count is below the threshold — GLOMAP falls back to the standard CPU-based Ceres solver automatically. No manual intervention is required.
+</Note>
+
+## Expected speedup
+
+GPU acceleration provides the largest benefit for global positioning and bundle adjustment on large scenes. Both stages involve solving large sparse linear systems, which map well onto GPU parallelism. The actual speedup depends on GPU model, scene size, and the number of tracks.
+
+<Tip>
+For the largest speedup, combine GPU acceleration with track capping (`--TrackEstablishment.max_num_tracks`) to reduce the problem size before optimization. See [Performance tuning](/advanced/performance-tuning) for details.
+</Tip>

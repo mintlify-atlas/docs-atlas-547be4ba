@@ -1,0 +1,70 @@
+---
+title: 'Rotation averaging'
+description: 'Options for the global rotation averaging stage that recovers all absolute camera orientations simultaneously from pairwise relative rotations.'
+---
+
+Rotation averaging takes the relative rotations between image pairs (produced by relative pose estimation) and finds the set of absolute rotations for every camera that best explains all of them globally. GLOMAP uses a two-phase approach adapted from [Theia SfM](http://www.theia-sfm.org/):
+
+1. **L1 minimisation** — a robust initial estimate using iterative reweighted least squares with an L1 objective.
+2. **IRLS** — iteratively reweighted least squares that refines the estimate with a Geman-McClure or Half-Norm robust weight function.
+
+When gravity priors are available (from an IMU or gravity estimation), a 1-DoF variant is used that constrains the rotation to only the yaw degree of freedom (`rotation_averager` command with `--use_gravity`).
+
+## L1 phase
+
+<ParamField path="max_num_l1_iterations" type="number" default="5">
+  Maximum number of L1 minimisation outer iterations. Each iteration solves a weighted least-squares system.
+</ParamField>
+
+<ParamField path="l1_step_convergence_threshold" type="number" default="0.001">
+  Average step size (in radians) below which the L1 phase is considered converged and terminates early.
+</ParamField>
+
+## IRLS phase
+
+<ParamField path="max_num_irls_iterations" type="number" default="100">
+  Maximum number of iteratively reweighted least squares iterations performed after the L1 phase.
+</ParamField>
+
+<ParamField path="irls_step_convergence_threshold" type="number" default="0.001">
+  Average step size (in radians) below which the IRLS phase is considered converged and terminates early.
+</ParamField>
+
+<ParamField path="irls_loss_parameter_sigma" type="number" default="5.0">
+  Transition point (in degrees) for the Huber-like IRLS cost function. Residuals smaller than this value are penalised as L2; larger residuals are penalised as L1. Increase for noisier datasets with many outlier pairs.
+</ParamField>
+
+## Weight function
+
+<ParamField path="weight_type" type="string" default="GEMAN_MCCLURE">
+  The robust weight function used during IRLS.
+
+  | Value | Description |
+  |---|---|
+  | `GEMAN_MCCLURE` | Geman-McClure weight (Chatterjee et al., 2013). Default and recommended for most scenes. |
+  | `HALF_NORM` | Half-norm weight (Chatterjee et al., 2017). Can be more robust on datasets with many outlier pairs. |
+</ParamField>
+
+<ParamField path="use_weight" type="boolean" default="false">
+  Apply edge weights (e.g., inlier counts) during rotation averaging. When disabled, all image pairs are weighted equally.
+</ParamField>
+
+## Initialisation
+
+<ParamField path="skip_initialization" type="boolean" default="false">
+  Skip the maximum spanning tree initialisation and start from identity rotations instead. The maximum spanning tree initialisation (using inlier counts as edge weights) is strongly recommended and should only be disabled for debugging.
+</ParamField>
+
+## Gravity prior (1-DoF mode)
+
+<ParamField path="axis" type="object" default="[0, 1, 0]">
+  The gravity axis in world coordinates used when `use_gravity` is enabled. The default `(0, 1, 0)` assumes the Y-axis points upward.
+</ParamField>
+
+<ParamField path="use_gravity" type="boolean" default="false">
+  Enable gravity-aligned rotation averaging. When gravity directions are available for images, this constrains each rotation to the gravity-aligned subspace (1-DoF yaw estimation), significantly reducing drift on large outdoor scenes.
+</ParamField>
+
+<Tip>
+  Gravity-aligned rotation averaging is exposed as the `rotation_averager` subcommand and is activated by passing `--use_gravity` together with a database that contains gravity observations.
+</Tip>
