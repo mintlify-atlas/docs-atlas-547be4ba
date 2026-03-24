@@ -60,7 +60,7 @@ glomap mapper \
 
 | Option | Default | Description |
 |---|---|---|
-| `--GlobalPositioning.max_num_iterations` | *(solver default)* | Maximum Ceres iterations for global positioning |
+| `--GlobalPositioning.max_num_iterations` | `100` | Maximum Ceres iterations for global positioning |
 | `--BundleAdjustment.max_num_iterations` | `200` | Maximum Ceres iterations for bundle adjustment |
 
 The Ceres `solver_options.max_num_iterations` default of `200` is set in `BundleAdjusterOptions`. Reducing it to 50–100 typically still yields accurate results while cutting wall-clock time significantly.
@@ -69,14 +69,13 @@ The Ceres `solver_options.max_num_iterations` default of `200` is set in `Bundle
 
 `BundleAdjusterOptions` controls which parameters Ceres optimizes. Fixing parameters you do not need reduces problem size and iteration cost.
 
-| Option | Default | Description |
+| CLI flag | Default | Description |
 |---|---|---|
-| `optimize_rotations` | `true` | Optimize camera rotations |
-| `optimize_translation` | `true` | Optimize camera translations |
-| `optimize_intrinsics` | `true` | Optimize focal length and distortion |
-| `optimize_principal_point` | `false` | Optimize the principal point |
-| `optimize_points` | `true` | Optimize 3D point positions |
-| `min_num_view_per_track` | `3` | Minimum views a track must have to be included in BA |
+| `--BundleAdjustment.optimize_rotations` | `true` | Optimize camera rotations |
+| `--BundleAdjustment.optimize_translation` | `true` | Optimize camera translations |
+| `--BundleAdjustment.optimize_intrinsics` | `true` | Optimize focal length and distortion |
+| `--BundleAdjustment.optimize_principal_point` | `false` | Optimize the principal point |
+| `--BundleAdjustment.optimize_points` | `true` | Optimize 3D point positions |
 
 To lock intrinsics (useful when camera parameters are known and trustworthy):
 
@@ -85,7 +84,7 @@ glomap mapper \
     --database_path DATABASE_PATH \
     --image_path IMAGE_PATH \
     --output_path OUTPUT_PATH \
-    --BundleAdjustment.optimize_intrinsics 0
+    --BundleAdjustment.optimize_intrinsics false
 ```
 
 ## Skipping pipeline stages
@@ -98,10 +97,10 @@ glomap mapper \
 | `--skip_view_graph_calibration` | `false` | View graph calibration |
 | `--skip_relative_pose_estimation` | `false` | Relative pose estimation between image pairs |
 | `--skip_rotation_averaging` | `false` | Global rotation averaging |
-| `--skip_track_establishment` | `false` | Track establishment |
 | `--skip_global_positioning` | `false` | Global camera positioning |
 | `--skip_bundle_adjustment` | `false` | Bundle adjustment |
 | `--skip_retriangulation` | `false` | Post-BA retriangulation |
+| `--skip_pruning` | `true` | Final track/camera pruning (disabled by default) |
 
 <Warning>
 Skip flags assume that the corresponding outputs are already available from a previous run or are intentionally omitted. Skipping a stage whose outputs are missing will cause downstream stages to fail.

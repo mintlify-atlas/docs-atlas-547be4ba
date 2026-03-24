@@ -7,12 +7,14 @@ description: 'Top-level options for the GLOMAP global SfM pipeline, controlling 
 
 ## Iteration counts
 
+These struct fields map to the CLI flags `--ba_iteration_num` and `--retriangulation_iteration_num`.
+
 <ParamField path="num_iteration_bundle_adjustment" type="number" default="3">
-  Number of times the bundle adjustment stage is repeated during the main reconstruction loop. Increasing this improves accuracy at the cost of longer runtimes.
+  Number of times the bundle adjustment stage is repeated during the main reconstruction loop. CLI flag: `--ba_iteration_num`. Increasing this improves accuracy at the cost of longer runtimes.
 </ParamField>
 
 <ParamField path="num_iteration_retriangulation" type="number" default="1">
-  Number of retriangulation passes run after bundle adjustment. Each pass attempts to recover points that were previously discarded or not yet triangulated.
+  Number of retriangulation passes run after bundle adjustment. CLI flag: `--retriangulation_iteration_num`. Each pass attempts to recover points that were previously discarded or not yet triangulated.
 </ParamField>
 
 ## Pipeline flow flags
@@ -72,7 +74,19 @@ Each pipeline stage has its own options struct accessible as a field of `GlobalM
 
 See the individual configuration pages for the fields within each nested struct:
 
-- [Bundle adjustment](/configuration/bundle-adjustment)
-- [Global positioning](/configuration/global-positioning)
-- [Rotation averaging](/configuration/rotation-averaging)
-- [Inlier thresholds](/configuration/inlier-thresholds)
+- [Bundle adjustment](/configuration/bundle-adjustment) — CLI prefix: `BundleAdjustment.*`
+- [Global positioning](/configuration/global-positioning) — CLI prefix: `GlobalPositioning.*`
+- [Rotation averaging](/configuration/rotation-averaging) — CLI prefix: `RotationEstimator.*`
+- [Inlier thresholds](/configuration/inlier-thresholds) — CLI prefix: `Thresholds.*`
+
+Other nested structs exposed via CLI:
+
+| Struct | CLI prefix | Key options |
+|---|---|---|
+| `ViewGraphCalibratorOptions` | `ViewGraphCalib.*` | `thres_lower_ratio` (0.1), `thres_higher_ratio` (10), `thres_two_view_error` (2.0) |
+| `TrackEstablishmentOptions` | `TrackEstablishment.*` | `min_num_tracks_per_view` (-1), `min_num_view_per_track` (3), `max_num_view_per_track` (100), `max_num_tracks` (10000000) |
+| `TriangulatorOptions` | `Triangulation.*` | `complete_max_reproj_error` (15.0), `merge_max_reproj_error` (15.0), `min_angle` (1.0), `min_num_matches` (15) |
+
+<Note>
+  The `--skip_track_establishment` flag is defined on the `GlobalMapperOptions` struct but is not directly registered as a CLI argument. It can only be set programmatically when using the C++ API.
+</Note>

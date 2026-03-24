@@ -84,6 +84,10 @@ The primary constraint type is `ONLY_POINTS`, where the objective is to find cam
   Scale parameter for the Huber loss function applied to positioning residuals. Smaller values make the solver more outlier-robust at the cost of slower convergence.
 </ParamField>
 
+<ParamField path="GlobalPositioning.max_num_iterations" type="number" default="100">
+  Maximum number of Levenberg-Marquardt iterations for the Ceres solver. Inherited from `OptimizationBaseOptions`. The solver terminates early if the `function_tolerance` convergence criterion (`1e-5`) is met first.
+</ParamField>
+
 <Note>
-  The `function_tolerance` and `max_num_iterations` solver options are inherited from `OptimizationBaseOptions` (defaults: `1e-5` and `100` respectively).
+  All fields are accessed via the `GlobalPositioning.*` CLI prefix, e.g. `--GlobalPositioning.max_num_iterations 50`.
 </Note>

@@ -66,5 +66,5 @@ GLOMAP uses [Ceres Solver](http://ceres-solver.org/) with a Huber robust loss fu
 </ParamField>
 
 <Tip>
-  The base class `OptimizationBaseOptions` also exposes `solver_options.num_threads` (defaults to all hardware threads) and `solver_options.function_tolerance` (default `1e-5`). These can be tuned when optimising for speed on large datasets.
+  All fields are accessed via the `BundleAdjustment.*` CLI prefix, e.g. `--BundleAdjustment.max_num_iterations 100`. The base class `OptimizationBaseOptions` also exposes `solver_options.num_threads` (defaults to all hardware threads) and `solver_options.function_tolerance` (default `1e-5`).
 </Tip>

@@ -68,6 +68,22 @@ It supports two modes:
   to be set.
 </ParamField>
 
+## Gravity refiner options
+
+These options control the gravity refinement step activated by `--refine_gravity=1`. They are passed via the `GravityRefiner.*` prefix.
+
+<ParamField path="--GravityRefiner.max_outlier_ratio" type="number" default="0.5">
+  Maximum fraction of observations that may be outliers. If exceeded, the gravity refinement is considered unreliable.
+</ParamField>
+
+<ParamField path="--GravityRefiner.max_gravity_error" type="number" default="1.0">
+  Maximum allowed angular error (in degrees) between the refined and measured gravity directions.
+</ParamField>
+
+<ParamField path="--GravityRefiner.min_num_neighbors" type="int" default="7">
+  Minimum number of connected images required before a gravity direction is refined. Images with fewer neighbors are left unchanged.
+</ParamField>
+
 ## 3-DoF vs 1-DoF rotation averaging
 
 ### 3-DoF (standard)

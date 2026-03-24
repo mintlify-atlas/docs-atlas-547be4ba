@@ -50,29 +50,31 @@ glomap mapper_resume \
 
 ## Pipeline skip flags
 
-The same pipeline skip flags available on `mapper` are also accepted here, allowing you to run only a subset of the pipeline stages on the loaded reconstruction.
+When `mapper_resume` loads an existing reconstruction, several early pipeline stages are automatically skipped because their outputs already exist in the loaded model. The following stages are forced to `true` (skipped) regardless of user input:
 
-| Flag | Default |
-|---|---|
-| `--skip_preprocessing` | `false` |
-| `--skip_view_graph_calibration` | `false` |
-| `--skip_relative_pose_estimation` | `false` |
-| `--skip_rotation_averaging` | `false` |
-| `--skip_track_establishment` | `false` |
-| `--skip_global_positioning` | `false` |
-| `--skip_bundle_adjustment` | `false` |
-| `--skip_retriangulation` | `false` |
-| `--skip_pruning` | `true` |
+| Flag | Default for `mapper_resume` | Reason |
+|---|---|---|
+| `--skip_preprocessing` | `true` (forced) | No database to preprocess |
+| `--skip_view_graph_calibration` | `true` (forced) | Calibration already done |
+| `--skip_relative_pose_estimation` | `true` (forced) | Relative poses already computed |
+| `--skip_rotation_averaging` | `true` (forced) | Rotations already estimated |
+| `--skip_track_establishment` | `true` (forced) | Tracks already established |
+| `--skip_retriangulation` | `true` (forced) | Retriangulation skipped by default |
+| `--skip_global_positioning` | `false` | Can re-run global positioning |
+| `--skip_bundle_adjustment` | `false` | Can re-run bundle adjustment |
+| `--skip_pruning` | `true` | Pruning skipped by default |
 
-See the [mapper reference](/commands/mapper#pipeline-skip-flags) for full descriptions of each flag.
+<Note>
+  `mapper_resume` is designed to run the global positioning and bundle adjustment stages on a pre-existing reconstruction. Flags for earlier stages are hardcoded to skip in the resume path.
+</Note>
 
 ## Iteration control
 
-<ParamField path="--num_iteration_bundle_adjustment" type="int" default="3">
+<ParamField path="--ba_iteration_num" type="int" default="3">
   Number of bundle adjustment iterations.
 </ParamField>
 
-<ParamField path="--num_iteration_retriangulation" type="int" default="1">
+<ParamField path="--retriangulation_iteration_num" type="int" default="1">
   Number of retriangulation iterations.
 </ParamField>
 

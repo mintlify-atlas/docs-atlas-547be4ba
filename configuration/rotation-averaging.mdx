@@ -65,6 +65,12 @@ When gravity priors are available (from an IMU or gravity estimation), a 1-DoF v
   Enable gravity-aligned rotation averaging. When gravity directions are available for images, this constrains each rotation to the gravity-aligned subspace (1-DoF yaw estimation), significantly reducing drift on large outdoor scenes.
 </ParamField>
 
+## Stratified solving (rotation_averager command only)
+
+<ParamField path="use_stratified" type="boolean" default="true">
+  Use the stratified solver that handles mixed cases where only a subset of images have gravity directions available. This field is part of `RotationAveragerOptions` (which extends `RotationEstimatorOptions`) and is only available via the `rotation_averager` command, not the `mapper` command. CLI flag: `--use_stratified`.
+</ParamField>
+
 <Tip>
-  Gravity-aligned rotation averaging is exposed as the `rotation_averager` subcommand and is activated by passing `--use_gravity` together with a database that contains gravity observations.
+  Gravity-aligned rotation averaging is exposed as the `rotation_averager` subcommand and is activated by passing `--gravity_path` together with a gravity direction file. The `use_gravity` field is set automatically in the `rotation_averager` executable.
 </Tip>

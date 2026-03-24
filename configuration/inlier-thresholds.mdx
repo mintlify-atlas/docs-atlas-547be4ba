@@ -5,6 +5,8 @@ description: 'Thresholds used across all GLOMAP pipeline stages to classify matc
 
 `InlierThresholdOptions` is a shared struct stored inside `GlobalMapperOptions` under the field `inlier_thresholds`. Its values are read by multiple pipeline stages; changing a single value can affect several stages at once.
 
+All CLI flags for this struct use the `Thresholds.*` prefix, e.g. `--Thresholds.max_angle_error 2.0`.
+
 ## 3D-to-2D match thresholds
 
 These thresholds apply to individual point-to-camera observations.

@@ -57,10 +57,7 @@ glomap mapper \
   Try values of `4` or `10` depending on image quality. Higher values are more permissive and can recover more image pairs at the cost of admitting noisier geometry.
 </Tip>
 
-The default thresholds from the source code are:
-- Essential matrix: `1.0` pixel
-- Fundamental matrix: `4.0` pixels
-- Homography: `4.0` pixels
+The `--RelPoseEstimation.max_epipolar_error` flag controls the RANSAC inlier threshold (in pixels) used during pairwise relative pose estimation by PoseLib. The separate `Thresholds.max_epipolar_error_E/F/H` flags control view-graph inlier classification thresholds applied after estimation.
 
 ## Speed up the reconstruction
 

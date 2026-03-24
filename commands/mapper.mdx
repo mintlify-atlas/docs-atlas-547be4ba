@@ -81,7 +81,7 @@ Each stage of the pipeline can be skipped independently. This is useful when you
 </ParamField>
 
 <ParamField path="--skip_track_establishment" type="bool" default="false">
-  Skip feature track building.
+  Skip feature track building. Note: this flag is set on the internal options struct; it is not directly registered as a CLI argument in the current release.
 </ParamField>
 
 <ParamField path="--skip_global_positioning" type="bool" default="false">
@@ -103,11 +103,11 @@ Each stage of the pipeline can be skipped independently. This is useful when you
 
 ## Iteration control
 
-<ParamField path="--num_iteration_bundle_adjustment" type="int" default="3">
+<ParamField path="--ba_iteration_num" type="int" default="3">
   Number of bundle adjustment iterations to run.
 </ParamField>
 
-<ParamField path="--num_iteration_retriangulation" type="int" default="1">
+<ParamField path="--retriangulation_iteration_num" type="int" default="1">
   Number of retriangulation iterations to run.
 </ParamField>
 
