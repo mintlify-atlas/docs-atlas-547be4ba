@@ -1,0 +1,90 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "GLOMAP",
+  "projectDescription": "A global Structure-from-Motion pipeline that delivers 1-2 orders of magnitude faster 3D reconstruction from images compared to COLMAP, with on-par or superior quality.",
+  "theme": "palm",
+  "primaryColor": "#1c651c",
+  "lightColor": "#87af87",
+  "darkColor": "#c6d8c6",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/from-database",
+              "guides/from-images",
+              "guides/improving-reconstruction",
+              "guides/visualization"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/performance-tuning",
+              "advanced/gpu-acceleration",
+              "advanced/large-scale-datasets"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Command Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "commands/overview",
+              "commands/mapper",
+              "commands/mapper-resume",
+              "commands/rotation-averager"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/global-mapper-options",
+              "configuration/bundle-adjustment",
+              "configuration/global-positioning",
+              "configuration/rotation-averaging",
+              "configuration/inlier-thresholds"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Global Structure-from-Motion pipeline (1-2 orders of magnitude faster than incremental SfM)",
+    "COLMAP-compatible database input and sparse reconstruction output",
+    "Global rotation averaging with optional gravity prior",
+    "GPU-accelerated bundle adjustment via Ceres + cuDSS",
+    "Scalable reconstruction supporting large-scale datasets",
+    "Modular pipeline with per-stage skip flags for fine-grained control",
+    "Pre-compiled Windows binaries available"
+  ],
+  "publicApiSurface": [
+    "glomap mapper --database_path --image_path --output_path",
+    "glomap mapper_resume --input_path --output_path",
+    "glomap rotation_averager --relpose_path --output_path [--gravity_path]",
+    "GlobalMapper::Solve()",
+    "BundleAdjuster::Solve()",
+    "EstimateRelativePoses()",
+    "GlobalMapperOptions",
+    "BundleAdjusterOptions",
+    "GlobalPositionerOptions",
+    "RotationEstimatorOptions",
+    "RelativePoseEstimationOptions",
+    "InlierThresholdOptions"
+  ]
+}
